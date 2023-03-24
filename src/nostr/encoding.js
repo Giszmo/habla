@@ -10,7 +10,7 @@ export function encodeTLV(hex, prefix, relays, author, kind) {
   if (prefix === "naddr" || prefix === "nrelay") {
     buf = enc.encode(hex);
   } else {
-    buf = secp.utils.hexToBytes(hex);
+    buf = secp.etc.hexToBytes(hex);
   }
   const tl0 = [0, buf.length, ...buf];
 
@@ -25,7 +25,7 @@ export function encodeTLV(hex, prefix, relays, author, kind) {
 
   let tl2 = [];
   if (author) {
-    const authorBuff = secp.utils.hexToBytes(author);
+    const authorBuff = secp.etc.hexToBytes(author);
     tl2 = [2, authorBuff.length, ...authorBuff];
   }
 
@@ -56,7 +56,7 @@ export function decodeTLV(str) {
     entries.push({
       type: t,
       length: l,
-      value: secp.utils.bytesToHex(new Uint8Array(v)),
+      value: secp.etc.bytesToHex(new Uint8Array(v)),
     });
     x += 2 + l;
   }
@@ -129,7 +129,7 @@ export function eventAddress(ev) {
 }
 
 export function hexToBech32(hex, prefix) {
-  const buf = secp.utils.hexToBytes(hex);
+  const buf = secp.etc.hexToBytes(hex);
   return bech32.encode(prefix, bech32.toWords(buf));
 }
 
