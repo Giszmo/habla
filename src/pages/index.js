@@ -12,12 +12,19 @@ import {
   findTag,
   getZapAmount,
   getZapRequest,
+  decodeNprofile,
+  bech32ToHex
 } from "../nostr";
 import Authors from "../lib/Authors";
 import Tags from "../lib/Tags";
 import Layout from "../lib/Layout";
 import Feed from "../lib/Feed";
 import Relays from "../lib/Relays";
+
+let authors = undefined;
+try {
+  authors = process.env.REACT_APP_authors.split(",")
+} catch (e) {}
 
 const RECENT = "recent";
 const HOT = "hot";
@@ -36,14 +43,29 @@ export default function Home() {
     },
     enabled: followsOnly,
   });
-  const allFeed = useNostrEvents({
+  const all = {
     filter: {
       kinds: [30023],
-      limit: 20,
+      limit: 100,
     },
     enabled: !followsOnly,
-  });
-  const { events, seen, seenByRelay } = followsOnly ? followsFeed : allFeed;
+  }
+  if (authors) {
+    all.filter["authors"] = authors.map(it => {
+      if (it.startsWith("nprofile")) {
+        return decodeNprofile(it).pubkey
+      }
+      if (it.startsWith("npub")) {
+        return bech32ToHex(it)
+      }
+      return null
+    })
+    console.log(`all is ${all}`)
+  }
+  const allFeed = useNostrEvents(all);
+  const { events, seen, seenByRelay } = followsOnly
+    ? followsFeed
+    : allFeed;
 
   const filteredEvents = useMemo(() => {
     if (!selectedRelay) {
