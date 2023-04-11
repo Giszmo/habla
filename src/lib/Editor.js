@@ -38,12 +38,11 @@ export default function MyEditor({ event }) {
   );
   const [publishedOn, setPublishedOn] = useState({});
   const [title, setTitle] = useState(metadata?.title ?? "");
-  const [slug, setSlug] = useState(metadata?.d ?? String(Date.now()));
+  const [slug, setSlug] = useState(metadata?.d ?? '');
+  const [slugWarning, setSlugWarning] = useState('');
   const [summary, setSummary] = useState(metadata?.summary ?? "");
-  const [image, setImage] = useState(metadata?.image ?? "");
   const [publishedAt] = useState(metadata?.publishedAt);
-  const [sensitive, setIsSensitive] = useState(metadata?.sensitive ?? false);
-  const [warning, setWarning] = useState(metadata?.warning ?? "");
+  const [verdict, setVerdict] = useState(metadata?.verdict ?? 'wip');
   const [hashtags, setHashtags] = useState(
     metadata?.hashtags?.join(", ") ?? ""
   );
@@ -62,7 +61,7 @@ export default function MyEditor({ event }) {
     .map((t) => ["t", t]);
   const previewTags = [
     ["d", slug],
-    ["image", image],
+    ["verdict", verdict],
     ["title", title],
     ["summary", summary],
     ...htags,
@@ -74,7 +73,7 @@ export default function MyEditor({ event }) {
       try {
         setTitle(draft.title);
         setSlug(draft.slug);
-        setImage(draft.image);
+        setVerdict(draft.verdict)
         setSummary(draft.summary);
         setContent(draft.content);
         setHashtags(draft.hashtags);
@@ -88,6 +87,39 @@ export default function MyEditor({ event }) {
     setContent(text);
   }
 
+  function checkSlug(s) {
+    if (s.length < 1) {
+      setSlugWarning('Setting an identifier is not optional!')
+      return
+    }
+    const platformId = s.split('/')
+    if (platformId.length !== 2) {
+      setSlugWarning(`${s} is not an identifier compatible with walletscrutiny.`)
+      return
+    }
+    const [platform, id] = platformId
+    const platforms = 'android,iphone,hardware,bearer,desktop'.split(',')
+    console.log(`Platform ${platform}`)
+    if (!platforms.includes(platform)) {
+      setSlugWarning(`Unknown platform "${platform}".`)
+      return
+    }
+    if (id.length === 0) {
+      setSlugWarning(`Missing ID.`)
+      return
+    }
+    if (id.length < 3) {
+      setSlugWarning(`ID too short.`)
+      return
+    }
+    const re = /^[0-9a-zA-Z\.]*$/;
+    if (!re.test(id)) {
+      setSlugWarning(`"${id}" is not an identifier compatible with walletscrutiny. Only letters and "." allowed.`)
+      return
+    }
+    setSlugWarning('')
+  }
+
   async function onPublish() {
     const createdAt = dateToUnix();
     const htags = hashtags
@@ -99,19 +131,10 @@ export default function MyEditor({ event }) {
       ["d", slug],
       ["title", title],
       ["summary", summary],
+      ["verdict", verdict || 'wip'],
       ["published_at", publishedAt ? String(publishedAt) : String(createdAt)],
       ...htags,
     ];
-    if (image?.length > 0) {
-      tags.push(["image", image]);
-    }
-    if (sensitive) {
-      if (warning?.length > 0) {
-        tags.push(["content-warning", warning]);
-      } else {
-        tags.push(["content-warning"]);
-      }
-    }
     const ev = {
       content,
       kind: 30023,
@@ -156,7 +179,6 @@ export default function MyEditor({ event }) {
       title,
       slug,
       summary,
-      image,
       content,
       hashtags,
     });
@@ -183,16 +205,36 @@ export default function MyEditor({ event }) {
               Preview
             </Button>
             <Box className="editor">
+              <FormLabel htmlFor='slug'>Unique identifier for the product</FormLabel>
+              <Text>
+                For compatibility with WalletScrutiny, use platform/id. "android/de.schildbach.wallet" for example.
+              </Text>
+              <Text className="warning">
+                {slugWarning.length !== 0
+                  ? <span class='warning'>{slugWarning}</span>
+                  : ''
+                }
+              </Text>
+              <Input
+                id='slug'
+                value={slug}slug
+                onChange={(ev) => {
+                  setSlug(ev.target.value)
+                  checkSlug(ev.target.value)
+                }}
+                size="md"
+                mb={2}
+              />
               <FormLabel htmlFor='title'>Title</FormLabel>
               <Input
                 id='title'
                 value={title}
-                placeholder="Title for your article"
+                placeholder="Title (usually name of the product)"
                 onChange={(ev) => setTitle(ev.target.value)}
                 size="md"
                 mb={2}
               />
-              <FormLabel>Content</FormLabel>
+              <FormLabel>Your Analysis</FormLabel>
               <Box height={600} mb={2}>
                 <MdEditor
                   value={content}
@@ -204,15 +246,6 @@ export default function MyEditor({ event }) {
                   onChange={onChange}
                 />
               </Box>
-              <FormLabel htmlFor='image'>Image</FormLabel>
-              <Input
-                id='image'
-                placeholder="Link to the main article image"
-                value={image}
-                onChange={(ev) => setImage(ev.target.value)}
-                size="md"
-                mb={2}
-              />
               <FormLabel htmlFor='summary'>Summary</FormLabel>
               <Textarea
                 id="summary"
@@ -221,29 +254,21 @@ export default function MyEditor({ event }) {
                 onChange={(ev) => setSummary(ev.target.value)}
                 size="md"
               />
+              <FormLabel htmlFor='verdict' mt={2}>Verdict</FormLabel>
+              <Input
+                id='verdict'
+                value={verdict}
+                placeholder="Verdict identifier"
+                onChange={(ev) => setVerdict(ev.target.value)}
+                size="md"
+                mb={2}
+              />
               <FormLabel htmlFor='tags' mt={2}>Tags</FormLabel>
               <Input
                 id='tags'
                 value={hashtags}
                 placeholder="List of tags separated by comma: nostr, markdown"
                 onChange={(ev) => setHashtags(ev.target.value)}
-                size="md"
-                mb={2}
-              />
-              <Flex alignItems="center" mt={4}>
-                <FormLabel htmlFor='sensitive'>Sensitive content warning</FormLabel>
-                <Checkbox
-                  id='sensitive'
-                  isChecked={sensitive}
-                  onChange={(ev) => setIsSensitive(ev.target.checked)}
-                  mt={-1}
-                  size="md"
-                />
-              </Flex>
-              <Input
-                value={warning}
-                onChange={(ev) => setWarning(ev.target.value)}
-                placeholder="nudity, language, violence, etc"
                 size="md"
                 mb={2}
               />
@@ -267,7 +292,7 @@ export default function MyEditor({ event }) {
                     }
                     isChecked={publishOn[r]}
                   >
-                    {r}{" "}
+                    {`${r.replace(/^wss:../, '').replace(/\/$/,'')} `}
                     {isPublishing &&
                       publishOn[r] &&
                       !["ok", "failed"].includes(publishedOn[r]) && (
@@ -283,29 +308,6 @@ export default function MyEditor({ event }) {
                 ))}
               </Stack>
             </CheckboxGroup>
-            <Flex flexDirection="row" alignItems="center" px={4}>
-            <FormLabel htmlFor='adv' fontSize="2xl" fontWeight={700} mt={2}>
-              Advanced options
-            </FormLabel>
-            <Checkbox
-              id='adv'
-              onChange={() => {
-                setShowAdvanced(!showAdvanced)
-              }}
-              isChecked={showAdvanced} />
-            </Flex>
-            { showAdvanced
-              ? (<>
-                <FormLabel htmlFor='slug'>d</FormLabel>
-                <FormLabel htmlFor='slug' my={2}>Unique identifier for the article</FormLabel>
-                <Input
-                  id='slug'
-                  value={slug}
-                  onChange={(ev) => setSlug(ev.target.value)}
-                  size="md"
-                  mb={2}
-                /></>)
-              : '' }
           </>
         )}
       </Box>
